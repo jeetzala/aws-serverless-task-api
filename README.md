@@ -1,20 +1,20 @@
 # ☁️ AWS Serverless Task API
 
-This project demonstrates the design and deployment of a serverless task management API on Amazon Web Services (AWS) using **AWS Lambda, Amazon API Gateway HTTP API, Amazon DynamoDB, AWS IAM, Amazon CloudWatch, and Terraform**.
+This project demonstrates the design and deployment of a **serverless task management API** on Amazon Web Services (AWS) using **AWS Lambda, Amazon API Gateway HTTP API, Amazon DynamoDB, AWS IAM, Amazon CloudWatch, and Terraform**.
 
-The application exposes a CRUD API for creating, reading, updating, and deleting task records. Lambda provides the application logic, DynamoDB provides persistent NoSQL storage, and API Gateway provides the public HTTP interface.
+The application exposes a complete CRUD API for creating, reading, updating, and deleting task records. AWS Lambda provides the application logic, Amazon DynamoDB provides persistent NoSQL storage, and Amazon API Gateway provides the public HTTP interface.
 
-The project was built and validated in the AWS **Europe (Frankfurt)** Region (`eu-central-1`).
+The project was built, hardened, deployed, and validated in the AWS **Europe (Frankfurt)** Region (`eu-central-1`).
 
 ---
 
 # 🚀 Project Highlights
 
-✅ Python AWS Lambda Application
+✅ Python 3.11 AWS Lambda Application
 
-✅ CRUD API
+✅ Full CRUD API
 
-✅ API Gateway HTTP API
+✅ Amazon API Gateway HTTP API
 
 ✅ API Gateway Payload Format 2.0
 
@@ -22,37 +22,41 @@ The project was built and validated in the AWS **Europe (Frankfurt)** Region (`e
 
 ✅ UUID-based Task IDs
 
-✅ Input Validation
+✅ UTC timestamps
 
-✅ HTTP Error Handling
+✅ Input validation
 
-✅ DynamoDB Conditional Updates
+✅ HTTP error handling
 
-✅ DynamoDB Conditional Deletes
+✅ Conditional updates
 
-✅ Structured JSON Application Logging
+✅ Conditional deletes
+
+✅ Structured JSON application logging
 
 ✅ Amazon CloudWatch Logs
 
-✅ API Gateway Request Throttling
+✅ API Gateway request throttling
 
-✅ IAM Least-Privilege Access
+✅ IAM least-privilege access
 
 ✅ Terraform Infrastructure as Code
 
-✅ Local Python Testing
+✅ Local Python testing
 
-✅ End-to-End AWS API Testing
+✅ End-to-end live AWS API testing
 
-✅ Terraform Drift Validation
+✅ Terraform infrastructure drift validation
 
-✅ AWS Resource Cleanup
+✅ Temporary AWS deployment and cleanup
 
 ---
 
 # 🏗️ Architecture Overview
 
 ## Architecture Diagram
+
+![AWS Serverless Task API Architecture](screenshots/architecture.png)
 
 The application follows this request flow:
 
@@ -95,7 +99,7 @@ API Gateway
             └── Burst Limit: 20 requests
 ```
 
-The infrastructure is represented and managed using Terraform.
+The complete infrastructure is represented and managed using **Terraform**.
 
 ---
 
@@ -113,7 +117,7 @@ The Lambda application provides:
 * Task deletion
 * UUID generation
 * UTC timestamps
-* Request validation
+* Input validation
 * Structured logging
 * Error handling
 
@@ -147,19 +151,23 @@ The project uses:
 * Amazon CloudWatch Logs
 * Structured JSON application logs
 * API Gateway throttling
+* Input validation
+* Controlled error responses
 
 ## Infrastructure as Code
 
 Terraform manages:
 
-* DynamoDB
-* Lambda
-* IAM
-* CloudWatch
-* API Gateway
+* DynamoDB table
+* Lambda function
+* IAM role
+* IAM inline policy
+* CloudWatch log group
+* API Gateway HTTP API
+* API Gateway integration
 * API Gateway routes
 * API Gateway stage
-* Lambda permissions
+* Lambda permission
 
 ---
 
@@ -186,17 +194,17 @@ Authorization: NONE
 
 Authentication is intentionally not configured in this version of the project.
 
-Instead, the project focuses on:
+Instead, the implementation focuses on reducing unnecessary permissions and infrastructure exposure through:
 
 * IAM least-privilege access
 * Restricted DynamoDB permissions
 * Restricted CloudWatch permissions
 * API Gateway throttling
-* Input validation
-* Controlled error responses
-* Avoiding unnecessary infrastructure exposure
+* Request validation
+* Conditional database operations
+* Controlled HTTP error responses
 
-The Lambda execution role only receives the DynamoDB actions required by the application:
+The Lambda execution role is limited to the DynamoDB operations required by the application:
 
 ```text
 dynamodb:GetItem
@@ -206,14 +214,14 @@ dynamodb:DeleteItem
 dynamodb:Scan
 ```
 
-CloudWatch access is limited to:
+CloudWatch logging permissions are limited to:
 
 ```text
 logs:CreateLogStream
 logs:PutLogEvents
 ```
 
-The DynamoDB permissions are scoped to the project table rather than the entire DynamoDB service.
+DynamoDB permissions are scoped to the project table rather than granting broad DynamoDB access.
 
 ---
 
@@ -260,13 +268,15 @@ Content-Type: application/json
 }
 ```
 
-The task ID is generated using UUID.
+The task ID is generated using **UUID**.
 
-Timestamps are stored in UTC using ISO 8601 format.
+Timestamps are stored in **UTC** using ISO 8601 format.
 
 ---
 
 # 📈 Request Flow
+
+## Create Task
 
 ```text
 Client
@@ -287,7 +297,7 @@ Amazon DynamoDB
 JSON Response
 ```
 
-For an update:
+## Update Task
 
 ```text
 Client
@@ -318,9 +328,7 @@ The same conditional approach is used for deletion so that nonexistent tasks ret
 
 The application validates incoming requests before performing database operations.
 
-Examples include:
-
-### Missing Task
+## Missing Task
 
 ```json
 {
@@ -334,7 +342,7 @@ Returns:
 400 Bad Request
 ```
 
-### Invalid JSON
+## Invalid JSON
 
 ```json
 {
@@ -348,7 +356,7 @@ Returns:
 400 Bad Request
 ```
 
-### Task Not Found
+## Task Not Found
 
 ```json
 {
@@ -362,7 +370,7 @@ Returns:
 404 Not Found
 ```
 
-### Unsupported Method
+## Unsupported Method
 
 ```json
 {
@@ -376,11 +384,13 @@ Returns:
 405 Method Not Allowed
 ```
 
+This prevents invalid input from reaching the database layer and provides predictable responses to API clients.
+
 ---
 
 # 📊 CloudWatch Structured Logging
 
-The Lambda function uses structured JSON logging.
+The Lambda function uses **structured JSON logging**.
 
 CloudWatch records useful fields such as:
 
@@ -414,7 +424,7 @@ Log retention is configured for:
 7 days
 ```
 
-Structured logs make it easier to identify HTTP methods, paths, request IDs, and application events during troubleshooting.
+Structured logs make troubleshooting easier by exposing request methods, paths, request IDs, and application-level events in a consistent JSON format.
 
 ---
 
@@ -432,13 +442,13 @@ Burst Limit:
 
 This provides basic protection against uncontrolled request rates while keeping the configuration appropriate for a small portfolio application.
 
-API Gateway throttling is a request-rate control mechanism and should not be considered an absolute cost ceiling.
+API Gateway throttling is a request-rate control mechanism and should not be considered an absolute AWS cost ceiling.
 
 ---
 
 # 🧪 Local Testing
 
-Before deploying to AWS, the Lambda code was tested locally using Python.
+Before deploying to AWS, the Lambda application was tested locally using Python.
 
 The project includes:
 
@@ -448,7 +458,7 @@ test_lambda.py
 
 A local `FakeTable` is used to simulate DynamoDB so that application behavior can be tested without creating AWS resources.
 
-The test suite verifies:
+The local tests cover:
 
 ```text
 POST /tasks
@@ -458,7 +468,7 @@ PUT /tasks/{id}
 DELETE /tasks/{id}
 ```
 
-It also verifies:
+The test suite also verifies:
 
 ```text
 Invalid task input
@@ -470,7 +480,7 @@ Unsupported HTTP methods
 API Gateway HTTP API payload format 2.0
 ```
 
-Final local test result:
+Final local validation:
 
 ```text
 ✅ All CRUD, validation, and HTTP API v2 tests passed successfully.
@@ -482,7 +492,7 @@ Final local test result:
 
 After the local tests passed, the application was deployed to AWS using Terraform.
 
-The live API was validated using PowerShell.
+The live API was then validated using PowerShell.
 
 ## Create
 
@@ -569,37 +579,37 @@ Lambda Permission
 
 ## Terraform Workflow
 
-The infrastructure was initialized with:
+Initialize the Terraform project:
 
 ```bash
 terraform init
 ```
 
-Validated with:
+Validate the configuration:
 
 ```bash
 terraform validate
 ```
 
-Formatted with:
+Format the Terraform files:
 
 ```bash
 terraform fmt
 ```
 
-Reviewed with:
+Review the infrastructure plan:
 
 ```bash
 terraform plan
 ```
 
-Deployed with:
+Deploy the infrastructure:
 
 ```bash
 terraform apply
 ```
 
-Infrastructure consistency was later verified using:
+After deployment and hardening, Terraform was run again to verify infrastructure consistency:
 
 ```bash
 terraform plan
@@ -611,7 +621,7 @@ Final result:
 No changes. Your infrastructure matches the configuration.
 ```
 
-This confirms that the deployed AWS resources matched the Terraform configuration.
+This confirms that the deployed AWS resources matched the Terraform configuration and that no unmanaged infrastructure drift was detected by Terraform at the time of validation.
 
 ---
 
@@ -636,7 +646,7 @@ aws-serverless-task-api/
 └── screenshots/
 ```
 
-Terraform-generated files such as the following are excluded from the Git repository:
+Terraform-generated files are excluded from the Git repository:
 
 ```text
 .terraform/
@@ -653,7 +663,7 @@ Terraform-generated files such as the following are excluded from the Git reposi
 
 The original project provided a basic Lambda, API Gateway, and DynamoDB implementation.
 
-The application was upgraded rather than rebuilt as a separate project.
+The project was improved by extending the existing application rather than creating a completely separate serverless project.
 
 ---
 
@@ -661,7 +671,7 @@ The application was upgraded rather than rebuilt as a separate project.
 
 The Lambda function was extended from a basic create operation to a complete CRUD API.
 
-Implemented:
+Implemented operations:
 
 ```text
 POST
@@ -682,24 +692,25 @@ Validation was added for:
 * Invalid JSON
 * Missing task IDs
 
-Appropriate HTTP status codes were returned for invalid requests.
+Appropriate HTTP status codes are returned for invalid requests.
 
 ---
 
 ## Step 4 – Add Error Handling
 
-The Lambda function now handles:
+The Lambda function handles:
 
 * JSON parsing errors
 * DynamoDB conditional failures
 * Database operation errors
 * Unexpected runtime errors
+* Unsupported HTTP methods
 
 ---
 
 ## Step 5 – Add API Gateway HTTP API v2 Support
 
-The Lambda application was updated to support API Gateway payload format 2.0.
+The Lambda application was updated to support **API Gateway payload format 2.0**.
 
 HTTP methods can be read from:
 
@@ -707,21 +718,23 @@ HTTP methods can be read from:
 requestContext.http.method
 ```
 
-This allows the application to work correctly with the deployed HTTP API integration.
+This allows the Lambda function to correctly process requests from the deployed HTTP API integration.
 
 ---
 
 ## Step 6 – Create Local Test Suite
 
-A local test suite was created using Python and a simulated DynamoDB table.
+A local Python test suite was created using a simulated DynamoDB table.
 
-This allowed the application logic to be verified before using AWS resources.
+This allowed the application logic and CRUD behavior to be tested before relying on live AWS resources.
 
 ---
 
 ## Step 7 – Create Terraform Infrastructure
 
-Terraform configuration was created to represent the serverless architecture as infrastructure as code.
+Terraform configuration was created to represent the serverless architecture as **Infrastructure as Code**.
+
+The infrastructure definition covers the application, database, API layer, IAM configuration, logging, and Lambda integration.
 
 ---
 
@@ -729,11 +742,19 @@ Terraform configuration was created to represent the serverless architecture as 
 
 The Lambda execution role was configured with only the DynamoDB and CloudWatch permissions required by the application.
 
+The DynamoDB permissions are scoped to the project table.
+
 ---
 
 ## Step 9 – Deploy to AWS
 
-Terraform was used to deploy:
+Terraform was used to deploy the serverless application into:
+
+```text
+eu-central-1
+```
+
+The deployed architecture includes:
 
 ```text
 Lambda
@@ -743,27 +764,30 @@ IAM
 CloudWatch
 ```
 
-into:
-
-```text
-eu-central-1
-```
-
 ---
 
 ## Step 10 – Validate Live CRUD Operations
 
 The deployed API was tested end-to-end against the live AWS environment.
 
-The complete CRUD flow successfully completed.
+The complete CRUD workflow successfully completed:
+
+```text
+Create
+Read
+Update
+Read after update
+Delete
+Read after delete
+```
 
 ---
 
 ## Step 11 – Add Structured Logging
 
-Lambda logging was changed from text format to JSON.
+Lambda application logging was changed to structured JSON.
 
-Application logs now include structured request and task information.
+Application events now expose useful request and task information for CloudWatch-based troubleshooting.
 
 ---
 
@@ -776,36 +800,34 @@ API Gateway request-rate protection was added:
 20 request burst
 ```
 
+This adds basic request-rate control to the public HTTP API.
+
 ---
 
 ## Step 13 – Verify Infrastructure Drift
 
 Terraform was run again after deployment and hardening.
 
-Result:
+Final result:
 
 ```text
 No changes.
 Your infrastructure matches the configuration.
 ```
 
-This verified that Terraform and the deployed AWS infrastructure were synchronized.
+This confirmed that the deployed infrastructure remained synchronized with the Terraform configuration.
 
 ---
 
 # 📸 Screenshots
 
-Screenshots will document the important parts of the project.
-
-Recommended screenshots:
+Only the **key evidence screenshots** are included below. Redundant screenshots covering the same configuration or intermediate console steps were intentionally left out to keep the README clean and professional.
 
 ## 1. Architecture Diagram
 
-```text
-screenshots/architecture.png
-```
+![Architecture Diagram](screenshots/architecture.png)
 
-Shows:
+Shows the overall serverless architecture:
 
 ```text
 Client
@@ -817,113 +839,95 @@ Lambda
 DynamoDB
 ```
 
-with IAM and CloudWatch shown as supporting services.
+with IAM and CloudWatch providing supporting security and observability.
 
 ---
 
-## 2. Lambda Function
+## 2. API Gateway HTTP API
 
-Capture the deployed Lambda function showing:
+![API Gateway HTTP API](screenshots/api-gateway-http-api.png)
 
-* Function name
-* Python runtime
-* Memory
-* Timeout
-* Environment variable configuration
+Shows the deployed HTTP API configuration.
 
 ---
 
-## 3. API Gateway HTTP API
+## 3. Lambda Function
 
-Capture the API Gateway configuration showing:
+![Lambda Function](screenshots/lambda-function-created.png)
 
-* HTTP API
-* `$default` stage
-* CRUD routes
-* Lambda integration
+Shows the deployed AWS Lambda function used as the application layer.
 
 ---
 
 ## 4. DynamoDB Table
 
-Capture:
+![DynamoDB Table](screenshots/dynamodb-table-created.png)
+
+Shows the DynamoDB table used for persistent task storage.
+
+The table uses:
 
 ```text
-serverless-task-api-dev-tasks
+id
 ```
 
-showing the `id` partition key.
+as the partition key.
 
 ---
 
-## 5. IAM Role
+## 5. IAM Least-Privilege Policy
 
-Capture the Lambda execution role and its least-privilege policy.
+![IAM Least Privilege](screenshots/iam-least-privilege.png)
+
+Shows the IAM configuration used to restrict Lambda access to the resources and actions required by the application.
 
 ---
 
 ## 6. CloudWatch Structured Logs
 
-Capture the JSON application logs showing:
+![CloudWatch JSON Logs](screenshots/cloudwatch-json-logs.png)
 
-```text
-httpMethod
-path
-requestId
-taskCount
-```
+Shows structured JSON application logging from the deployed Lambda function.
 
 ---
 
 ## 7. API Gateway Throttling
 
-Capture the default stage showing:
+![API Gateway Throttling](screenshots/api-gateway-throttling.png)
+
+Shows the configured request-rate protection:
 
 ```text
-Rate limit: 10
-Burst limit: 20
+Rate Limit: 10 requests/second
+Burst Limit: 20 requests
 ```
 
 ---
 
-## 8. Live API Testing
+## 8. Live CRUD Testing
 
-Capture the PowerShell API testing results showing successful:
+![Live CRUD Test](screenshots/live-crud-test.png)
 
-```text
-POST
-GET
-PUT
-DELETE
-```
+Shows end-to-end validation of the deployed API and CRUD operations.
 
 ---
 
 ## 9. Terraform Validation
 
-Capture:
+![Terraform No Changes](screenshots/terraform-no-changes.png)
+
+Shows the final Terraform validation result:
 
 ```text
-terraform validate
-```
-
-and:
-
-```text
-terraform plan
-```
-
-showing:
-
-```text
-No changes. Your infrastructure matches the configuration.
+No changes.
+Your infrastructure matches the configuration.
 ```
 
 ---
 
 # 🧹 AWS Resource Cleanup
 
-The project was deployed temporarily for development and validation.
+The project was deployed temporarily for development, testing, and validation.
 
 When AWS testing is complete, the infrastructure can be removed with:
 
@@ -934,7 +938,7 @@ terraform destroy
 
 Terraform will remove the AWS resources managed by the configuration.
 
-This project uses serverless, usage-based AWS services, but AWS usage can still generate charges depending on account eligibility and actual consumption. Unused test infrastructure should therefore be removed after the required evidence has been captured.
+This project uses serverless, usage-based AWS services, but AWS usage can still generate charges depending on account eligibility and actual consumption. Temporary test resources should therefore be removed after the required validation and evidence have been completed.
 
 ---
 
@@ -944,20 +948,22 @@ Through this project, I practiced:
 
 * Building serverless applications with AWS Lambda
 * Designing HTTP APIs using Amazon API Gateway
-* Implementing CRUD operations
+* Implementing complete CRUD operations
 * Working with Amazon DynamoDB
-* Using UUIDs and timestamps
+* Using UUIDs for task identification
+* Working with UTC timestamps
 * Implementing request validation
 * Handling application and database errors
 * Using DynamoDB conditional expressions
-* Implementing structured CloudWatch logging
-* Applying API Gateway throttling
+* Implementing structured JSON logging
+* Monitoring application behavior with CloudWatch
+* Applying API Gateway request throttling
 * Creating least-privilege IAM policies
 * Managing AWS infrastructure with Terraform
 * Validating Terraform infrastructure
 * Testing Lambda logic locally
 * Testing a live AWS API end-to-end
-* Troubleshooting AWS serverless applications
+* Troubleshooting serverless applications
 * Managing temporary AWS resources and cleanup
 
 ---
@@ -965,7 +971,7 @@ Through this project, I practiced:
 # 📚 Skills Demonstrated
 
 * AWS Lambda
-* Amazon API Gateway
+* Amazon API Gateway HTTP API
 * Amazon DynamoDB
 * AWS IAM
 * Amazon CloudWatch
@@ -973,13 +979,14 @@ Through this project, I practiced:
 * Infrastructure as Code
 * Serverless Architecture
 * API Development
-* REST/HTTP API Concepts
+* HTTP API Concepts
 * Python
 * boto3
 * JSON
 * CRUD Operations
 * Error Handling
-* Logging & Monitoring
+* Structured Logging
+* Monitoring
 * API Throttling
 * AWS Troubleshooting
 
