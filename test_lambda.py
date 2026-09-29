@@ -298,4 +298,34 @@ unsupported_result = run_test(
 assert unsupported_result["statusCode"] == 405
 
 
-print("\n✅ All CRUD and validation tests passed successfully.")
+# --------------------------------------------------
+# 12. API GATEWAY HTTP API PAYLOAD FORMAT 2.0
+# --------------------------------------------------
+
+lambda_v2_result = run_test(
+    "HTTP API v2 POST /tasks",
+    {
+        "version": "2.0",
+        "routeKey": "POST /tasks",
+        "rawPath": "/tasks",
+        "requestContext": {
+            "http": {
+                "method": "POST"
+            }
+        },
+        "body": json.dumps({
+            "task": "Test API Gateway HTTP API v2"
+        })
+    }
+)
+
+assert lambda_v2_result["statusCode"] == 201
+
+lambda_v2_body = json.loads(lambda_v2_result["body"])
+
+assert lambda_v2_body["task"]["task"] == (
+    "Test API Gateway HTTP API v2"
+)
+
+
+print("\n✅ All CRUD, validation, and HTTP API v2 tests passed successfully.")

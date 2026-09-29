@@ -35,7 +35,18 @@ def get_body(event):
 
 def lambda_handler(event, context):
     try:
-        http_method = event.get("httpMethod", "POST")
+        # Support both API Gateway payload formats.
+        http_method = event.get("httpMethod")
+
+        if not http_method:
+            http_method = (
+                event.get("requestContext", {})
+                .get("http", {})
+                .get("method", "POST")
+            )
+
+        http_method = http_method.upper()
+
         path_parameters = event.get("pathParameters") or {}
 
         # CREATE
