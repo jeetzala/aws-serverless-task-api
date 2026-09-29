@@ -4,3 +4,9 @@ __pycache__/
 venv/
 .env
 .vscode/
+
+# Terraform
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/*.zip

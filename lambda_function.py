@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import uuid
 from datetime import datetime, timezone
@@ -6,6 +7,9 @@ from datetime import datetime, timezone
 import boto3
 from botocore.exceptions import ClientError
 
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 dynamodb = boto3.resource("dynamodb")
 table = dynamodb.Table(os.environ.get("TABLE_NAME", "Tasks"))
@@ -33,21 +37,40 @@ def get_body(event):
     return body
 
 
+def get_http_method(event):
+    http_method = event.get("httpMethod")
+
+    if not http_method:
+        http_method = (
+            event.get("requestContext", {})
+            .get("http", {})
+            .get("method", "POST")
+        )
+
+    return http_method.upper()
+
+
+def get_path(event):
+    return (
+        event.get("rawPath")
+        or event.get("path")
+        or "/"
+    )
+
+
 def lambda_handler(event, context):
     try:
-        # Support both API Gateway payload formats.
-        http_method = event.get("httpMethod")
-
-        if not http_method:
-            http_method = (
-                event.get("requestContext", {})
-                .get("http", {})
-                .get("method", "POST")
-            )
-
-        http_method = http_method.upper()
-
+        http_method = get_http_method(event)
+        path = get_path(event)
         path_parameters = event.get("pathParameters") or {}
+
+        logger.info(
+            "API request received",
+            extra={
+                "httpMethod": http_method,
+                "path": path
+            }
+        )
 
         # CREATE
         if http_method == "POST":
@@ -58,6 +81,8 @@ def lambda_handler(event, context):
                 or not isinstance(body.get("task"), str)
                 or not body["task"].strip()
             ):
+                logger.warning("Invalid task creation request")
+
                 return response(
                     400,
                     {
@@ -77,6 +102,13 @@ def lambda_handler(event, context):
 
             table.put_item(Item=item)
 
+            logger.info(
+                "Task created",
+                extra={
+                    "taskId": task_id
+                }
+            )
+
             return response(
                 201,
                 {
@@ -88,6 +120,13 @@ def lambda_handler(event, context):
         # READ ALL
         if http_method == "GET" and not path_parameters.get("id"):
             result = table.scan()
+
+            logger.info(
+                "Tasks listed",
+                extra={
+                    "taskCount": len(result.get("Items", []))
+                }
+            )
 
             return response(
                 200,
@@ -107,12 +146,26 @@ def lambda_handler(event, context):
             item = result.get("Item")
 
             if not item:
+                logger.info(
+                    "Task not found",
+                    extra={
+                        "taskId": task_id
+                    }
+                )
+
                 return response(
                     404,
                     {
                         "error": "Task not found."
                     }
                 )
+
+            logger.info(
+                "Task retrieved",
+                extra={
+                    "taskId": task_id
+                }
+            )
 
             return response(
                 200,
@@ -140,6 +193,13 @@ def lambda_handler(event, context):
                 or not isinstance(body.get("task"), str)
                 or not body["task"].strip()
             ):
+                logger.warning(
+                    "Invalid task update request",
+                    extra={
+                        "taskId": task_id
+                    }
+                )
+
                 return response(
                     400,
                     {
@@ -164,6 +224,13 @@ def lambda_handler(event, context):
                     ReturnValues="ALL_NEW"
                 )
 
+                logger.info(
+                    "Task updated",
+                    extra={
+                        "taskId": task_id
+                    }
+                )
+
                 return response(
                     200,
                     {
@@ -177,6 +244,13 @@ def lambda_handler(event, context):
                     error.response["Error"]["Code"]
                     == "ConditionalCheckFailedException"
                 ):
+                    logger.info(
+                        "Task update failed because task was not found",
+                        extra={
+                            "taskId": task_id
+                        }
+                    )
+
                     return response(
                         404,
                         {
@@ -204,6 +278,13 @@ def lambda_handler(event, context):
                     ConditionExpression="attribute_exists(id)"
                 )
 
+                logger.info(
+                    "Task deleted",
+                    extra={
+                        "taskId": task_id
+                    }
+                )
+
                 return response(
                     200,
                     {
@@ -216,6 +297,13 @@ def lambda_handler(event, context):
                     error.response["Error"]["Code"]
                     == "ConditionalCheckFailedException"
                 ):
+                    logger.info(
+                        "Task deletion failed because task was not found",
+                        extra={
+                            "taskId": task_id
+                        }
+                    )
+
                     return response(
                         404,
                         {
@@ -225,7 +313,14 @@ def lambda_handler(event, context):
 
                 raise
 
-        # UNSUPPORTED METHOD
+        logger.warning(
+            "Unsupported HTTP method",
+            extra={
+                "httpMethod": http_method,
+                "path": path
+            }
+        )
+
         return response(
             405,
             {
@@ -234,6 +329,8 @@ def lambda_handler(event, context):
         )
 
     except json.JSONDecodeError:
+        logger.warning("Invalid JSON request")
+
         return response(
             400,
             {
@@ -242,7 +339,7 @@ def lambda_handler(event, context):
         )
 
     except ClientError as error:
-        print(f"DynamoDB error: {error}")
+        logger.exception("DynamoDB operation failed")
 
         return response(
             500,
@@ -251,8 +348,8 @@ def lambda_handler(event, context):
             }
         )
 
-    except Exception as error:
-        print(f"Unexpected error: {error}")
+    except Exception:
+        logger.exception("Unexpected Lambda error")
 
         return response(
             500,
