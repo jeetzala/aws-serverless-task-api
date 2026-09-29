@@ -184,7 +184,7 @@ Terraform manages:
 
 # 🔐 Security Architecture
 
-The API is publicly accessible through API Gateway for portfolio testing.
+During live AWS validation, the API was publicly accessible through API Gateway for portfolio testing. The AWS infrastructure has since been destroyed after validation.
 
 The current API routes use:
 
